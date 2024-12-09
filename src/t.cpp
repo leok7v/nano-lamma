@@ -5,6 +5,7 @@
 
 int main(int argc, char** argv) {
     assert(argc > 1);
+    ggml_backend_init_best();
     const char* model_path = argv[1];
     struct llama_model_params mparams = llama_model_default_params();
     struct llama_model* model = llama_load_model_from_file(model_path, mparams);

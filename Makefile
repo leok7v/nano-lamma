@@ -1,7 +1,24 @@
 CXX := clang++
-CC := clang
-CXXFLAGS := -O3 -std=c++20 -w -I./llama.cpp/include -I./llama.cpp/ggml/include -I./llama.cpp/ggml/src -I./llama.cpp/ggml/src/ggml-cpu
-CFLAGS := -O3 -std=gnu11 -w -I./llama.cpp/include -I./llama.cpp/ggml/include -I./llama.cpp/ggml/src -I./llama.cpp/ggml/src/ggml-cpu
+CC  := clang
+
+CXXFLAGS := -std=c++20 -w @make.inc.rsp
+CFLAGS   := -std=iso9899:2018 -w @make.inc.rsp
+
+DEBUG_FLAGS   :=  @make.debug.rsp
+RELEASE_FLAGS :=  @make.run.rsp
+
+ifdef BUILD
+    ifeq ($(BUILD),debug)
+        CXXFLAGS += $(DEBUG_FLAGS)
+        CFLAGS += $(DEBUG_FLAGS)
+    else ifeq ($(BUILD),release)
+        CXXFLAGS += $(RELEASE_FLAGS)
+        CFLAGS += $(RELEASE_FLAGS)
+    endif
+else # default to debug build
+        CXXFLAGS += $(DEBUG_FLAGS)
+        CFLAGS += $(DEBUG_FLAGS)
+endif
 
 LLAMA_SOURCES := \
     ./llama.cpp/src/llama.cpp \
@@ -23,8 +40,8 @@ GGML_C_SOURCES := \
 GGML_CPP_SOURCES := \
     ./llama.cpp/ggml/src/ggml-backend-reg.cpp \
     ./llama.cpp/ggml/src/ggml-backend.cpp \
-    ./llama.cpp/ggml/src/ggml-threading.cpp
-#   ./llama.cpp/ggml/src/ggml-cpu/cpu-feats-x86.cpp
+    ./llama.cpp/ggml/src/ggml-threading.cpp \
+    ./llama.cpp/ggml/src/ggml-cpu/cpu-feats-x86.cpp
 
 GGML_CPU_CPP_SOURCE := ./llama.cpp/ggml/src/ggml-cpu/ggml-cpu.cpp
 
@@ -55,4 +72,3 @@ $(LLAMA_OBJECTS): %.o : %.cpp
 
 clean:
 	rm -f $(OBJECTS) t
-
