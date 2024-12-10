@@ -1,8 +1,11 @@
 CXX := clang++
 CC  := clang
 
-CXXFLAGS := -std=c++20 -w @make.inc.rsp
-CFLAGS   := -std=iso9899:2018 -w @make.inc.rsp
+CXXSTD := -std=c++20 
+CSTD   := -std=iso9899:2018
+
+CXXFLAGS := -w @make.inc.rsp @make.def.rsp $(CXXSTD)
+CFLAGS   := -w @make.inc.rsp @make.def.rsp $(CSTD)
 
 DEBUG_FLAGS   :=  @make.debug.rsp
 RELEASE_FLAGS :=  @make.run.rsp

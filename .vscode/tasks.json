@@ -4,7 +4,7 @@
         {
             "label": "Download Model",
             "type": "shell",
-            "command": "./download.sh",
+            "command": "./scripts/download.sh",
             "group": {
                 "kind": "build",
                 "isDefault": false
