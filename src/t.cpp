@@ -108,6 +108,26 @@ static std::string detokenize(llama_context * ctx, const std::vector<llama_token
     return text;
 }
 
+static void batch_clear(struct llama_batch & batch) {
+    batch.n_tokens = 0;
+}
+
+static void batch_add(
+                 struct llama_batch & batch,
+                        llama_token   id,
+                          llama_pos   pos,
+    const std::vector<llama_seq_id> & seq_ids,
+                               bool   logits) {
+    batch.token   [batch.n_tokens] = id;
+    batch.pos     [batch.n_tokens] = pos;
+    batch.n_seq_id[batch.n_tokens] = seq_ids.size();
+    for (size_t i = 0; i < seq_ids.size(); ++i) {
+        batch.seq_id[batch.n_tokens][i] = seq_ids[i];
+    }
+    batch.logits  [batch.n_tokens] = logits;
+    batch.n_tokens++;
+}
+
 static bool inference() {
     // Define the prompt
     const char* prompt = "Write a short story about a cat.";
@@ -125,42 +145,43 @@ static bool inference() {
     printf("prompt: \"%s\"\n", prompt);
     printf("tokens: %s\n", string_from(ctx, tokens).c_str());
     printf("detokenize: \"%s\"\n", detokenize(ctx, tokens).c_str());
-    if (llama_model_has_encoder(model)) {
-        int enc_input_size = tokens.size();
-        llama_token * enc_input_buf = tokens.data();
-        if (llama_encode(ctx, llama_batch_get_one(enc_input_buf, enc_input_size))) {
-            fprintf(stderr, "%s : failed to eval\n", __func__);
-            return false;
-        }
-    }
     uint32_t n_ctx = llama_n_ctx(ctx);
     printf("n_ctx: %d\n", n_ctx);
-#if 0    
-    if (llama_model_evaluate(ctx, tokens, n_tokens, n_ctx) != 0) {
+    batch_clear(batch);
+    for (int i = 0; i < n_tokens; ++i) {
+        batch_add(batch, tokens[i], i, {}, false);
+    }
+    batch.logits[batch.n_tokens - 1] = 1; // Enable logits for the last token
+    if (llama_decode(ctx, batch) != 0) {
         fprintf(stderr, "Failed to evaluate the prompt.\n");
-        return;
+        return false;
     }
     printf("Prompt evaluated: '%s'\n", prompt);
-    // Generate additional tokens
-    for (int i = 0; i < max_tokens; i++) {
-        // Fetch the next token
-        llama_token next_token = llama_sample_next_token(ctx, NULL);
-        if (next_token == LLAMA_TOKEN_EOS) {
+
+    // Generation loop
+    int max_tokens = 128; // Adjust as needed
+    for (int i = 0; i < max_tokens; ++i) {
+        // Sample the next token using the sampler
+        llama_token new_token_id = llama_sampler_sample(sampler, ctx, batch.n_tokens - 1);
+
+        // Check for end-of-sequence
+        if (llama_token_is_eog(model, new_token_id)) {
             printf("\nEnd of stream reached.\n");
             break;
         }
         // Convert token to string and print
-        const char* token_str = llama_token_to_str(ctx, next_token);
-        if (token_str) {
-            printf("%s", token_str);
-        }
-        // Append the token to the context
-        if (llama_model_evaluate(ctx, &next_token, 1, n_ctx) != 0) {
-            fprintf(stderr, "Failed to evaluate the token.\n");
+        std::string token_str = token_to_piece(ctx, new_token_id);
+        printf("%s", token_str.c_str());
+        // Add new token to batch
+        batch_clear(batch);
+        batch_add(batch, new_token_id, n_tokens + i, {}, true);
+        // Decode the new token
+        if (llama_decode(ctx, batch) != 0) {
+            fprintf(stderr, "Failed to evaluate token.\n");
             break;
         }
     }
- #endif   
+
     printf("\n");
     return true;
 }
