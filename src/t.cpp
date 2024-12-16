@@ -26,6 +26,21 @@ static void init() {
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(seed));
     batch = llama_batch_init(512, 0, 1);
+/*  see: https://huggingface.co/ibm-granite/granite-3.0-1b-a400m-instruct */
+    llama_chat_message conversation[] = {
+        {"role", "User"},
+        {"content", "Please list one IBM Research laboratory located in the United States. You should only output its name and location."}
+    };
+    // list all supported templates
+    std::vector<const char *> supported_tmpl;
+    int res = llama_chat_builtin_templates(nullptr, 0);
+    assert(res > 0);
+    supported_tmpl.resize(res);
+    res = llama_chat_builtin_templates(supported_tmpl.data(), supported_tmpl.size());
+    printf("Built-in chat templates:\n");
+    for (auto tmpl : supported_tmpl) {
+        printf("  %s\n", tmpl);
+    }
 }
 
 static void deinit() {
@@ -142,46 +157,38 @@ static bool inference() {
         fprintf(stderr, "Failed to tokenize the prompt.\n");
         return false;
     }
+    tokens.resize(n_tokens);
     printf("prompt: \"%s\"\n", prompt);
     printf("tokens: %s\n", string_from(ctx, tokens).c_str());
     printf("detokenize: \"%s\"\n", detokenize(ctx, tokens).c_str());
     uint32_t n_ctx = llama_n_ctx(ctx);
     printf("n_ctx: %d\n", n_ctx);
-    batch_clear(batch);
-    for (int i = 0; i < n_tokens; ++i) {
-        batch_add(batch, tokens[i], i, {}, false);
+    int n_past = 0;
+    std::vector<llama_token> embd;
+    if (!tokens.empty()) {
+        // Use tokens from the prompt
+        embd.insert(embd.end(), tokens.begin(), tokens.end());
+        tokens.clear();
     }
-    batch.logits[batch.n_tokens - 1] = 1; // Enable logits for the last token
-    if (llama_decode(ctx, batch) != 0) {
-        fprintf(stderr, "Failed to evaluate the prompt.\n");
-        return false;
-    }
-    printf("Prompt evaluated: '%s'\n", prompt);
-
-    // Generation loop
-    int max_tokens = 128; // Adjust as needed
-    for (int i = 0; i < max_tokens; ++i) {
-        // Sample the next token using the sampler
-        llama_token new_token_id = llama_sampler_sample(sampler, ctx, batch.n_tokens - 1);
-
-        // Check for end-of-sequence
-        if (llama_token_is_eog(model, new_token_id)) {
-            printf("\nEnd of stream reached.\n");
+    int n_predict = 128; // Number of tokens to generate
+    int n_remaining = n_predict;
+    while (n_remaining > 0) {
+        if (llama_decode(ctx, llama_batch_get_one(embd.data(), embd.size())) != 0) {
+            fprintf(stderr, "Failed to evaluate tokens.\n");
+            return false;
+        }
+        n_past += embd.size();
+        llama_token id = llama_sampler_sample(sampler, ctx, -1);
+        if (llama_token_is_eog(model, id)) {
+            printf("\n<end of text>\n");
             break;
         }
-        // Convert token to string and print
-        std::string token_str = token_to_piece(ctx, new_token_id);
-        printf("%s", token_str.c_str());
-        // Add new token to batch
-        batch_clear(batch);
-        batch_add(batch, new_token_id, n_tokens + i, {}, true);
-        // Decode the new token
-        if (llama_decode(ctx, batch) != 0) {
-            fprintf(stderr, "Failed to evaluate token.\n");
-            break;
-        }
+        std::string token_str = token_to_piece(ctx, id);
+        printf("%zd %d \"%s\"\n", embd.size(), id, token_str.c_str());
+        embd.push_back(id);
+        llama_sampler_accept(sampler, id);
+        n_remaining--;
     }
-
     printf("\n");
     return true;
 }
