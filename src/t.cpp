@@ -16,39 +16,24 @@ static struct llama_context* ctx;
 struct llama_sampler_chain_params sampler_chain_params;
 struct llama_sampler * sampler;
 
-static llama_batch batch;
-
 static void init() {
+#if 0
+    sampler = llama_sampler_init_greedy();
+#else
     sampler_chain_params = llama_sampler_chain_default_params();
     sampler = llama_sampler_chain_init(sampler_chain_params);
-    const float temperature = 0.8f;
-    const uint32_t seed = LLAMA_DEFAULT_SEED;
+    const float temperature = 1.00f;
+    const uint32_t seed = 153; // LLAMA_DEFAULT_SEED will actually use a random seed
     llama_sampler_chain_add(sampler, llama_sampler_init_top_k(50));
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.9f, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.99f, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_min_p(0.05f, 1));
     llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(seed));
-    batch = llama_batch_init(512, 0, 1);
-/*  see: https://huggingface.co/ibm-granite/granite-3.0-1b-a400m-instruct */
-    llama_chat_message conversation[] = {
-        {"role", "User"},
-        {"content", "Please list one IBM Research laboratory located in the United States. You should only output its name and location."}
-    };
-    // list all supported templates
-    std::vector<const char *> supported_tmpl;
-    int res = llama_chat_builtin_templates(nullptr, 0);
-    assert(res > 0);
-    supported_tmpl.resize(res);
-    res = llama_chat_builtin_templates(supported_tmpl.data(), supported_tmpl.size());
-    printf("Built-in chat templates:\n");
-    for (auto tmpl : supported_tmpl) {
-        printf("  %s\n", tmpl);
-    }
+#endif
 }
 
 static void deinit() {
     llama_sampler_free(sampler);    
-    llama_batch_free(batch);
     llama_free(ctx);
     llama_free_model(model);
     llama_backend_free();
@@ -134,26 +119,6 @@ static std::string detokenize(llama_context * ctx, const std::vector<llama_token
     return text;
 }
 
-static void batch_clear(struct llama_batch & batch) {
-    batch.n_tokens = 0;
-}
-
-static void batch_add(
-                 struct llama_batch & batch,
-                        llama_token   id,
-                          llama_pos   pos,
-    const std::vector<llama_seq_id> & seq_ids,
-                               bool   logits) {
-    batch.token   [batch.n_tokens] = id;
-    batch.pos     [batch.n_tokens] = pos;
-    batch.n_seq_id[batch.n_tokens] = seq_ids.size();
-    for (size_t i = 0; i < seq_ids.size(); ++i) {
-        batch.seq_id[batch.n_tokens][i] = seq_ids[i];
-    }
-    batch.logits  [batch.n_tokens] = logits;
-    batch.n_tokens++;
-}
-
 static bool inference() {
     llama_chat_message conversation[] = {
         {"role", "User"},
@@ -180,17 +145,23 @@ static bool inference() {
 
     static const char* fs_0 = "<|start_of_role|>user<|end_of_role|>"
     "Please list one IBM Research laboratory located in the United States. "
-    "You should only output its name and location<|end_of_text|>"
+    "You should only output its name and location."
+    "<|end_of_text|>"
     "<|start_of_role|>assistant<|end_of_role|>";
 
-    static const char* fs = "<|start_of_role|>user<|end_of_role|>"
+    static const char* fs_1 = "<|start_of_role|>user<|end_of_role|>"
     "Explain battery charge level to voltage ratio for different types of batteries."
+    "<|end_of_text|>"
+    "<|start_of_role|>assistant<|end_of_role|>";
+
+    static const char* fs  = "<|start_of_role|>user<|end_of_role|>"
+    "Generate a story about Cinderela and her fairy godmother."
     "<|end_of_text|>"
     "<|start_of_role|>assistant<|end_of_role|>";
 
     formatted.resize(strlen(fs));
     memcpy(formatted.data(), fs, formatted.size());
-    // Python sampel code outputs:
+    // Python sample code outputs:
     // "545 East 9th Street<|end_of_text|>"
     int32_t len = (int32_t)formatted.size();
     printf("formatted: \"%s\"\n", formatted.data());
@@ -218,13 +189,20 @@ static bool inference() {
     }
     int n_predict = 512; // Number of tokens to generate
     int n_remaining = n_predict;
+    llama_token last = 0;
     while (n_remaining > 0) {
+        int n_ctx_used = llama_get_kv_cache_used_cells(ctx);
+        if (n_ctx_used + embd.size() > n_ctx) {
+            fprintf(stderr, "context size exceeded\n");
+            break;
+        }
         if (llama_decode(ctx, llama_batch_get_one(embd.data(), embd.size())) != 0) {
-            fprintf(stderr, "Failed to evaluate tokens.\n");
-            return false;
+            fprintf(stderr, "Failed to evaluate tokens. last=%d\n", last);
+            break;
         }
         n_past += embd.size();
         llama_token id = llama_sampler_sample(sampler, ctx, -1);
+        last = id;
         // printf("id: %d\n", id);
         if (llama_token_is_eog(model, id)) {
             printf("\n<end of text>\n");
@@ -244,7 +222,7 @@ int main(int argc, char** argv) {
     assert(argc > 1);
     // only print errors
     llama_log_set([](enum ggml_log_level level, const char * text, void * /* user_data */) {
-        if (level >= GGML_LOG_LEVEL_ERROR) {
+        if (level >= GGML_LOG_LEVEL_DEBUG) {
             fprintf(stderr, "%s", text);
         }
     }, nullptr);

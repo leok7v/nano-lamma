@@ -1,4 +1,6 @@
-models/granite-3.0-1b-a400m-instruct/granite-3.0-1B-a400M-instruct-Q8_0.gguf
 *.o
+/**.o
+models/*
 t
+main
 .DS_Store
