@@ -1,2 +1,2 @@
-./t models/granite-3.0-1b-a400m-instruct/granite-3.0-1B-a400M-instruct-Q8_0.gguf
+./t models/granite-3.1-1b-a400m-instruct/granite-3.1-1b-a400m-instruct-Q8_0.gguf
 

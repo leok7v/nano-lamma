@@ -1,6 +1,8 @@
 *.o
 /**.o
-models/*
+models/**/*.gguf
+models/**/*.safetensors
 t
 main
 .DS_Store
+**/.DS_Store

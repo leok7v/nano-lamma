@@ -10,7 +10,7 @@
             "args": [
               "--conversation",
               "--interactive",
-              "-m", "models/granite-3.1-1b-a400m-instruct/granite-3.1-1B-a400M-instruct-F32.gguf", 
+              "-m", "models/granite-3.1-1b-a400m-instruct/granite-3.1-1B-a400M-instruct-Q8_0.gguf", 
 //            "-p", "\"I believe the meaning of life is\"", 
               "-p", "\"Please list one IBM Research laboratory located in the United States. You should only output its name and location.\"",
               "-n", "512",
@@ -47,7 +47,7 @@
           "request": "launch",
           "preLaunchTask": "Build Release",
           "program": "${workspaceFolder}/main",
-          "args": ["models/granite-3.1-1b-a400m-instruct/granite-3.1-1B-a400M-instruct-F32.gguf"],
+          "args": ["models/granite-3.1-1b-a400m-instruct/granite-3.1-1B-a400M-instruct-Q8_0.gguf"],
           "environment": [{ "name": "config", "value": "Debug" }],
           "cwd": "${workspaceFolder}",
           "targetArchitecture": "arm64",
