@@ -24,27 +24,43 @@ else # default to debug build
 endif
 
 LLAMA_SOURCES := \
-    ./llama.cpp/src/llama.cpp \
+    ./llama.cpp/src/llama-adapter.cpp \
+    ./llama.cpp/src/llama-arch.cpp \
+    ./llama.cpp/src/llama-batch.cpp \
+    ./llama.cpp/src/llama-chat.cpp \
+    ./llama.cpp/src/llama-context.cpp \
+    ./llama.cpp/src/llama-cparams.cpp \
+    ./llama.cpp/src/llama-grammar.cpp \
+    ./llama.cpp/src/llama-hparams.cpp \
+    ./llama.cpp/src/llama-impl.cpp \
+    ./llama.cpp/src/llama-kv-cache.cpp \
+    ./llama.cpp/src/llama-mmap.cpp \
+    ./llama.cpp/src/llama-model-loader.cpp \
+    ./llama.cpp/src/llama-model.cpp \
+    ./llama.cpp/src/llama-quant.cpp \
     ./llama.cpp/src/llama-sampling.cpp \
     ./llama.cpp/src/llama-vocab.cpp \
-    ./llama.cpp/src/llama-grammar.cpp \
-    ./llama.cpp/src/unicode.cpp \
-    ./llama.cpp/src/unicode-data.cpp
+    ./llama.cpp/src/llama.cpp \
+    ./llama.cpp/src/unicode-data.cpp \
+    ./llama.cpp/src/unicode.cpp
 
 GGML_C_SOURCES := \
-    ./llama.cpp/ggml/src/ggml-cpu/ggml-cpu.c \
-    ./llama.cpp/ggml/src/ggml-aarch64.c \
     ./llama.cpp/ggml/src/ggml-alloc.c \
     ./llama.cpp/ggml/src/ggml-quants.c \
     ./llama.cpp/ggml/src/ggml.c \
-    ./llama.cpp/ggml/src/ggml-cpu/ggml-cpu-aarch64.c \
+    ./llama.cpp/ggml/src/ggml-cpu/ggml-cpu.c \
     ./llama.cpp/ggml/src/ggml-cpu/ggml-cpu-quants.c
 
 GGML_CPP_SOURCES := \
     ./llama.cpp/ggml/src/ggml-backend-reg.cpp \
     ./llama.cpp/ggml/src/ggml-backend.cpp \
     ./llama.cpp/ggml/src/ggml-threading.cpp \
-    ./llama.cpp/ggml/src/ggml-cpu/cpu-feats-x86.cpp
+    ./llama.cpp/ggml/src/ggml-opt.cpp \
+    ./llama.cpp/ggml/src/gguf.cpp \
+    ./llama.cpp/ggml/src/ggml-cpu/cpu-feats-x86.cpp \
+    ./llama.cpp/ggml/src/ggml-cpu/ggml-cpu-traits.cpp \
+    ./llama.cpp/ggml/src/ggml-cpu/ggml-cpu-aarch64.cpp
+
 
 GGML_CPU_CPP_SOURCE := ./llama.cpp/ggml/src/ggml-cpu/ggml-cpu.cpp
 
@@ -52,15 +68,17 @@ GGML_CPU_CPP_OBJECT := $(GGML_CPU_CPP_SOURCE:.cpp=-cpp.o)
 
 LLAMA_COMMON_SOURCES := \
     ./llama.cpp/common/arg.cpp \
+    ./llama.cpp/common/chat.cpp \
     ./llama.cpp/common/common.cpp \
     ./llama.cpp/common/console.cpp \
     ./llama.cpp/common/json-schema-to-grammar.cpp \
+    ./llama.cpp/common/llguidance.cpp \
     ./llama.cpp/common/log.cpp \
     ./llama.cpp/common/ngram-cache.cpp \
     ./llama.cpp/common/sampling.cpp \
     ./llama.cpp/common/speculative.cpp
 
-MAIN_SOURCE := src/main.cpp
+MAIN_SOURCE := llama.cpp/examples/main/main.cpp src/llama_build_number.cpp
 
 LLAMA_OBJECTS        := $(LLAMA_SOURCES:.cpp=.o)
 GGML_C_OBJECTS       := $(GGML_C_SOURCES:.c=.o)
